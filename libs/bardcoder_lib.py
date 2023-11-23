@@ -27,7 +27,7 @@ class BardCoder:
         Initialize the BardCoder class with the given parameters.
         """
         try:
-            self.model = "models/" + model
+            self.model = f"models/{model}"
             self.temperature = temperature
             self.max_output_tokens = max_output_tokens
             self.mode = mode
@@ -142,16 +142,16 @@ class BardCoder:
 
             logger.info(f"Generating code with mode: {self.mode}, top_k: {self.top_k}, top_p: {self.top_p}")
 
-            
+
             # check for valid prompt and language
             if not code_prompt or len(code_prompt) == 0:
                 logger.error("Error in code generation: Please enter a valid prompt.")
                 return
-            
+
             logger.info(f"Generating code for prompt: {code_prompt} in language: {code_language}")
             if code_prompt and len(code_prompt) > 0 and code_language and len(code_language) > 0:
                 logger.info(f"Generating code for prompt: {code_prompt} in language: {code_language}")
-                
+
             # Construct the prompt
             prompt = f"""
             Task: Design a program {code_prompt} with the following guidelines and
@@ -161,7 +161,7 @@ class BardCoder:
             Guidelines:
             {self.guidelines}
             """
-            
+
             logger.info(f"Prompt constructed successfully: {prompt}")
 
             self.palm_generator = palm.generate_text(
@@ -175,33 +175,32 @@ class BardCoder:
                 stop_sequences=[],
                 safety_settings=[{"category":"HARM_CATEGORY_DEROGATORY","threshold":1},{"category":"HARM_CATEGORY_TOXICITY","threshold":1},{"category":"HARM_CATEGORY_VIOLENCE","threshold":2},{"category":"HARM_CATEGORY_SEXUAL","threshold":2},{"category":"HARM_CATEGORY_MEDICAL","threshold":2},{"category":"HARM_CATEGORY_DANGEROUS","threshold":2}],
             )
-            
+
             if self.palm_generator:
                 # extract the code from the palm completion
                 self.code = self.palm_generator.result
                 # raise exception if self.code is empty or invalid
                 if self.code is not None and len(self.code) == 0:
                     raise ValueError("Generated code is empty or invalid.")
-                
-                logger.info(f"Palm coder is initialized.")
+
+                logger.info("Palm coder is initialized.")
                 logger.info(f"Generated code: {self.code[:100]}...")
-            
-            if self.palm_generator:
-                # Extracted code from the palm completion
-                self.extracted_code = self._extract_code(self.code)
-                
-                # Set Executor class vars
-                self.code_executor.code = self.code
-                self.code_executor.extracted_code = self.extracted_code
-                
-                # Check if the code or extracted code is not empty or null
-                if not self.code or not self.extracted_code:
-                    raise Exception("Error: Generated code or extracted code is empty or null.")
-                
-                return self.extracted_code
-            else:
+
+            if not self.palm_generator:
                 raise Exception("Error in code generation: Please enter a valid code.")
-            
+
+            # Extracted code from the palm completion
+            self.extracted_code = self._extract_code(self.code)
+
+            # Set Executor class vars
+            self.code_executor.code = self.code
+            self.code_executor.extracted_code = self.extracted_code
+
+            # Check if the code or extracted code is not empty or null
+            if not self.code or not self.extracted_code:
+                raise Exception("Error: Generated code or extracted code is empty or null.")
+
+            return self.extracted_code
         except Exception as exception:
             logger.error(f"Error in code generation: {traceback.format_exc()}")
             raise Exception(exception)
@@ -215,11 +214,11 @@ class BardCoder:
             if not code or len(code) == 0:
                 logger.error("Error in code fixing: Please enter a valid code.")
                 return
-            
-            logger.info(f"Fixing code")
+
+            logger.info("Fixing code")
             if code and len(code) > 0:
                 logger.info(f"Fixing code {code[:100]}... in language {code_language}")
-                
+
                 # This template is used to generate the prompt for fixing the code
                 template = f"""
                 Task: Fix the following program {{code}} in the language {code_language} with the following guidelines
@@ -227,10 +226,10 @@ class BardCoder:
                 And make sure the output contains the full fixed code.
                 Add comments in that line where you fixed and what you fixed.
                 """
-                
+
                 # Prompt Templates
                 code_template = template.format(code=code)
-                
+
                 # LLM Chains definition
                 # Create a chain that generates the code
                 self.palm_generator = palm.generate_text(
@@ -244,19 +243,18 @@ class BardCoder:
                 stop_sequences=[],
                 safety_settings=[{"category":"HARM_CATEGORY_DEROGATORY","threshold":1},{"category":"HARM_CATEGORY_TOXICITY","threshold":1},{"category":"HARM_CATEGORY_VIOLENCE","threshold":2},{"category":"HARM_CATEGORY_SEXUAL","threshold":2},{"category":"HARM_CATEGORY_MEDICAL","threshold":2},{"category":"HARM_CATEGORY_DANGEROUS","threshold":2}],
                 )
-                
-                if self.palm_generator:
-                    # Extracted code from the palm completion
-                    code = self.palm_generator.result
-                    extracted_code = self._extract_code(code)
-                    
-                    # Check if the code or extracted code is not empty or null
-                    if not code or not extracted_code:
-                        raise Exception("Error: Generated code or extracted code is empty or null.")
-                    else:
-                        return extracted_code
-                else:
+
+                if not self.palm_generator:
                     raise Exception("Error in code fixing: Please enter a valid code.")
+                # Extracted code from the palm completion
+                code = self.palm_generator.result
+                extracted_code = self._extract_code(code)
+
+                    # Check if the code or extracted code is not empty or null
+                if code and extracted_code:
+                    return extracted_code
+                else:
+                    raise Exception("Error: Generated code or extracted code is empty or null.")
             else:
                 logger.error("Error in code fixing: Please enter a valid code and language.")
         except:
@@ -284,13 +282,13 @@ class BardCoder:
             logger.info(f"Attempting to execute code: {code[:50]} in language: {language} with Compiler Mode: {compiler_mode}")
             output = self.code_executor.execute_code(code, language,compiler_mode)
             logger.info(f"Code executed successfully with output: {output[:100]}...")
-            
+
             # Check for errors in code execution
             if "error" in output.lower() or "exception" in output.lower() or "SyntaxError" in output.lower() or "NameError" in output.lower():
-                logger.info(f"Code execution failed. Fixing code.")
+                logger.info("Code execution failed. Fixing code.")
                 output = self.fix_code(code,language)
-                    
-            logger.info(f"Code executed successfully.")
+
+            logger.info("Code executed successfully.")
             return output
         except Exception as exception:
             logger.error(f"Error in executing code: {traceback.format_exc()}")

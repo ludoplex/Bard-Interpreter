@@ -25,47 +25,49 @@ def bard_execute(prompt, code_file='code.txt', code_choices='code_choice', expec
     try:
         # Additional prompt for class clarification.
         #prompt += "\n" + "Name the class code_generated for Java language."
-        
+
         # Additional prompt for no input clarification.
         prompt += "\n" + "Dont ask the input from user.If input values are provided in code just use them. otherwise, you can hardcode the input values in code."
-        
+
         # Setting the prompt.
         code = bard_coder.generate_code(prompt, 'python')  # Generate code using BardCoder
         if not code:
-            print(f"Error no data was recieved from Server")
+            print("Error no data was recieved from Server")
             return None, None, False
 
         # Save the code to file
         print(f"Saving code {code[:100]} to file {code_file}")
         saved_file = bard_coder.save_code(code_file)
         if saved_file:
-            show_output("BardCoder: " + f"Code saved to file {saved_file}")
+            show_output(f"BardCoder: Code saved to file {saved_file}")
         else:
             show_output("BardCoder: " + "Code not saved to file")
 
         show_output("BardCoder: " + "Executing primary code")
         code_extension = bard_coder.get_code_extension()
         code_output = bard_coder.execute_code('offline', code,code_extension)
-        
-        if code_output and code_output != None and code_output.__len__() > 0:
-            if 'error:' in code_output.lower():
-                show_output("BardCoder: " + f"Error in executing code with exec_type {exec_type}")
-                return code_output, saved_file, False
 
-            # Check if expected output is in code output.
-            if expected_output:
-                if  expected_output in code_output:
-                    code_choices_output = [code_output]
-                    return code_output, saved_file, True
-            else:
-                if exec_type == 'single':
-                    time.sleep(rate_limiter_delay)
-                    return code_output, saved_file, True
-                else:
-                    time.sleep(rate_limiter_delay)
-        else:
+        if (
+            not code_output
+            or code_output is None
+            or code_output.__len__() <= 0
+        ):
             return code_output, saved_file, False
 
+        if 'error:' in code_output.lower():
+            show_output(f"BardCoder: Error in executing code with exec_type {exec_type}")
+            return code_output, saved_file, False
+
+            # Check if expected output is in code output.
+        if expected_output:
+            if  expected_output in code_output:
+                code_choices_output = [code_output]
+                return code_output, saved_file, True
+        elif exec_type == 'single':
+            time.sleep(rate_limiter_delay)
+            return code_output, saved_file, True
+        else:
+            time.sleep(rate_limiter_delay)
         # Save all the code choices to file
         if exec_type == 'multiple':
             bard_coder.save_code_choices(code_choices)
@@ -73,7 +75,7 @@ def bard_execute(prompt, code_file='code.txt', code_choices='code_choice', expec
             show_output("BardCoder: " + "Executing code choices")
             code_choices_output = bard_coder.execute_code_choices()
             code_choices_output.append(code_output)
-            show_output("BardCoder: " + f"Output: {code_choices_output}")
+            show_output(f"BardCoder: Output: {code_choices_output}")
 
         # Execute all the code and code choices.
         # bard_coder.execute_code_choices()
@@ -83,64 +85,72 @@ def bard_execute(prompt, code_file='code.txt', code_choices='code_choice', expec
     except Exception as e:
         # show_outputf the stack trace
         stack_trace = traceback.format_exc()
-        show_output("BardCoder: " + stack_trace)
-        show_output("BardCoder: " + str(e))
+        show_output(f"BardCoder: {stack_trace}")
+        show_output(f"BardCoder: {str(e)}")
 
 def bard_setup(prompt, code_file='code.txt', code_choices='code_choice', expected_output=None, exec_type='single',rate_limiter_delay=5):
     
     # Append the codes directory to filename
     code_file = path.join("codes",code_file)
-    
+
     # Start the bard coder process
     code_choices_output, saved_file, status = bard_execute(prompt, code_file, code_choices, expected_output, exec_type)
     code_output = ""
-    
+
     if status:
-        show_output("BardCoder: " + f"Expected output found in file {saved_file}\nOutput: {code_choices_output}")
+        show_output(
+            f"BardCoder: Expected output found in file {saved_file}\nOutput: {code_choices_output}"
+        )
     else:
-        show_output("BardCoder: " + f"Expected output not found in file {saved_file}\nOutput: {code_choices_output}")
+        show_output(
+            f"BardCoder: Expected output not found in file {saved_file}\nOutput: {code_choices_output}"
+        )
         if code_choices_output:
             code_output = ''.join(code_choices_output)
         if code_output and code_output != None and code_output.__len__() > 0:
-            test_cases_output = 0 # Test cases for output.
             # Check for errors like 'error' or 'Error' check case sensitivity and add more error checks.
             code_output = "".join(code_output)
+            test_cases_output = 0
             while 'error' in code_output.lower():
-                show_output("BardCoder: " + f"Error in executing code,Trying to fix the code with error")
+                show_output(
+                    f"BardCoder: Error in executing code,Trying to fix the code with error"
+                )
 
                 # Re-prompt on error.
                 code = bard_coder.fix_code(code_output, 'python')  # Fix code using BardCoder
-                prompt = f"I got error while running the code {code_output}.\nPlease fix the code ``\n`{code}\n``` \nand try again.\nHere is error {code_output}\n\n" + \
-                "Note:The output should only be fixed code and nothing else. No explanation or anything else."
+                prompt = f"I got error while running the code {code_output}.\nPlease fix the code ``\n`{code}\n``` \nand try again.\nHere is error {code_output}\n\nNote:The output should only be fixed code and nothing else. No explanation or anything else."
 
                 # Start the bard coder process again.
                 code_output, saved_file, status = bard_execute(prompt, code_file, code_choices, expected_output, exec_type)
                 # Sleep for 5 seconds before re-prompting. Dont get Rate limited.
                 time.sleep(rate_limiter_delay)
                 test_cases_output += 1
-                
-            show_output("BardCoder: " + f"Code has been fixed for error\nOutput: {code_output}")
+
+            show_output(f"BardCoder: Code has been fixed for error\nOutput: {code_output}")
 
             # Check for expected output.
             if code_output and expected_output and code_output.__len__() > 0:
                 
                 # While expected output does not contain in code output.
                 while expected_output not in code_output:
-                    show_output("BardCoder: " + f"Expected output {expected_output} not found in code\nOutput: {code_output}")
+                    show_output(
+                        f"BardCoder: Expected output {expected_output} not found in code\nOutput: {code_output}"
+                    )
 
                     # Re-prompt on expected output not found.
                     code = bard_coder.fix_code(code_output, 'python')  # Fix code using BardCoder
-                    prompt = f"I got output {code_output}.\nPlease fix the code ``\n`{code}\n```  \nand try again.\nHere is expected output: {code_output}\n\n" + \
-                    "Note:The output should only be fixed code and nothing else. No explanation or anything else."
+                    prompt = f"I got output {code_output}.\nPlease fix the code ``\n`{code}\n```  \nand try again.\nHere is expected output: {code_output}\n\nNote:The output should only be fixed code and nothing else. No explanation or anything else."
 
                     # start the bard coder process again.
                     code_output, saved_file, status = bard_execute(prompt, code_file, code_choices, expected_output, exec_type)
-                    
+
                     # Sleep for 5 seconds before re-prompting. Dont get Rate limited.
                     time.sleep(rate_limiter_delay)
                     test_cases_output += 1
-                    
-                show_output("BardCoder: " + f"Code has been fixed for expected output\nOutput: {code_output}")
+
+                show_output(
+                    f"BardCoder: Code has been fixed for expected output\nOutput: {code_output}"
+                )
             else:
                 show_output("BardCoder: " + "Not checking for code expected output")
             measure_accuracy(test_cases_output)
@@ -158,29 +168,29 @@ def read_prompt_from_file(prompt_file = "prompt.txt") -> str:
 def bard_main() -> None:
     try:
         show_output("Welcome to Bard Coder - Experimental AI Code Generator")
-                
+
         # Clear the previous cache.
         subprocess.call(['bash', 'bash_src/clear_cache.sh'])
-        
+
         prompt_file = str(input("Enter prompt file name [default: prompt.txt]: "))
-        
+
         if not prompt_file or prompt_file.__len__() == 0:
             prompt_file = "prompt.txt"
             # sleep for 2 seconds.
             time.sleep(2)
             print(f"Reading prompt from file {prompt_file}")
-        
+
         # Read the prompt from file.
         prompt = read_prompt_from_file(prompt_file)
-        
+
         print(f"Trying to generate code for input prompt: \n{prompt}")
         time.sleep(2)
-                
+
         # Check if prompt is empty.
         if not prompt and prompt.__len__() == 0:
-            print(f"Prompt is empty in file prompt.txt")
+            print("Prompt is empty in file prompt.txt")
             return None
-            
+
         # Setting filenames for single/multiple code choices and output.
         code_file = "code_generated" # Filename of code. [Remeber no extension]
         code_choices = "code_choice" # Filename of code choices.
@@ -188,29 +198,26 @@ def bard_main() -> None:
         exec_type = 'single'  # Execution type = single/multiple. [in Multiple execution type, bard coder will generate multiple code choices]
         rate_limiter_delay = 5 # Delay in seconds to avoid rate limiting.
         share_gpt = True # Share the code on sharegpt.com
-        
+
         # Execute the bard coder process.
         code_output = bard_setup(prompt, code_file, code_choices, expected_output, exec_type,rate_limiter_delay)
         sharegpt_url = ""
-        
-        # Adding Share button
+
         if share_gpt:
             if code_output is None and messages is None:
                 show_output("Please run the code generator first")
             else:
                 gpt_data = prompt
-                human_data = ""
-                if messages:
-                    human_data = "Bard Logs: \n" + messages
+                human_data = "Bard Logs: \n" + messages if messages else ""
                 if code_output and len(code_output) > 0:
                     human_data += "\nOutput:\n" + code_output
                 if gpt_data and human_data:
                     sharegpt_url = sharegpt_get_url(gpt_data, human_data)
-                
+
                 human_data += "\n\n[AutoBard-Coder: Repo](https://github.com/haseeb-heaven/AutoBard-Coder)"
                 if len(sharegpt_url) > 0:
                     show_output(f"ShareGPT Url: {sharegpt_url}")
-        
+
     except Exception as e:
         stack_trace = traceback.format_exc()
         show_output(stack_trace)

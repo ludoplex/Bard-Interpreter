@@ -10,7 +10,7 @@ from libs.extensions_map import get_file_extesion
 
 def LangCodes():
     
-    LANGUAGE_CODES = {
+    return {
         'C': 'c',
         'C++': 'cpp',
         'Java': 'java',
@@ -24,7 +24,6 @@ def LangCodes():
         'Python': 'python3',
         'GO Lang': 'go',
     }
-    return LANGUAGE_CODES
 
 class CodeExecutor:
     def __init__(self, compiler_mode: str, code: str,language: str,code_extenstion: str):
@@ -36,16 +35,16 @@ class CodeExecutor:
     
     def execute_code(self,code:str,language: str='python', compiler_mode: str='offline'):
         
-        if not code or len(code.strip()) == 0 or not language or len(language.strip()) == 0:
+        if not code or not code.strip() or not language or not language.strip():
             logger.error("Error in code execution: Generated code is empty.")
             return
-        
+
         logger.info(f"Executing code: {code[:50]} in language: {language} with Compiler Mode: {compiler_mode}")
 
         try:
-            if len(code) == 0 or code == "":
+            if not code:
                 raise Exception("Execution code is empty or null")
-            
+
             if compiler_mode.lower() == "online":
                 html_content = self.generate_dynamic_html(language, code)
                 logger.info(f"HTML Template: {html_content[:100]}")
@@ -94,12 +93,12 @@ class CodeExecutor:
         # Check for code and language validity
         if not code or len(code.strip()) == 0:
             return "Code is empty. Cannot execute an empty code."
-        
+
         # Check for compilers on the system
         compilers_status = self.check_compilers(language)
         if not compilers_status:
             return "Compilers not found. Please install compilers on your system."
-        
+
         if language == "python":
             with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=True) as file:
                 file.write(code)
@@ -110,7 +109,7 @@ class CodeExecutor:
                 logger.info(f"Runner Output execution: {output.stdout + output.stderr}")
                 return output.stdout + output.stderr
 
-        elif language == "c" or language == "c++":
+        elif language in ["c", "c++"]:
             ext = ".c" if language == "c" else ".cpp"
             with tempfile.NamedTemporaryFile(mode="w", suffix=ext, delete=True) as src_file:
                 src_file.write(code)
@@ -139,7 +138,7 @@ class CodeExecutor:
                 output = subprocess.run(["node", file.name], capture_output=True, text=True)
                 logger.info(f"Runner Output execution: {output.stdout + output.stderr}")
                 return output.stdout + output.stderr
-            
+
         elif language == "java":
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".java", delete=True) as file:
                     file.write(code)
@@ -208,7 +207,7 @@ class CodeExecutor:
     # Generate Dynamic HTML for JDoodle Compiler iFrame Embedding.
     def generate_dynamic_html(self,language, code_prompt):
         logger.info("Generating dynamic HTML for language: %s", language)
-        html_template = """
+        return """
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -222,8 +221,9 @@ class CodeExecutor:
             <script src="https://www.jdoodle.com/assets/jdoodle-pym.min.js" type="text/javascript"></script>
         </body>
         </html>
-        """.format(language=LangCodes()[language], script_code=code_prompt)
-        return html_template
+        """.format(
+            language=LangCodes()[language], script_code=code_prompt
+        )
     
             # get the code extension from bard response - automatically detects the language from bard response.
     
@@ -233,7 +233,7 @@ class CodeExecutor:
             raise ValueError("Code must be a non-empty string.")
         try:
             logger.info(f"Getting code extension from code {code[:50]}")
-            if code and not code in "can't help":
+            if code and code not in "can't help":
                 self.code_extension = code.split('```')[1].split('\n')[0]
                 logger.info(f"Code extension: {self.code_extension}")
                 return self.code_extension
@@ -249,7 +249,7 @@ class CodeExecutor:
         try:
             logger.info(f"Saving code {code[:50]} with filename: {filename}")
             self.code = code
-            self.code_extenstion = '.' + self.get_code_extension(self.code)
+            self.code_extenstion = f'.{self.get_code_extension(self.code)}'
             logger.info(f"Code extension: {self.code_extenstion}")
             if code:
                 code = code.replace("\\n", "\n").replace("\\t", "\t")
@@ -267,7 +267,6 @@ class CodeExecutor:
             stack_trace = traceback.format_exc()
             logger.error(f"Error occurred while saving code: {exception}")
             raise Exception(stack_trace)
-            return None
 
     # save multiple codes from bard response
     def save_code_choices(self, filename):
@@ -275,15 +274,17 @@ class CodeExecutor:
             raise ValueError("Filename must be a non-empty string.")
         try:
             logger.info(f"Saving code choices with filename: {filename}")
-            extension = self.get_code_extension()
-            if extension:
-                self.code_extension = '.' + extension
+            if extension := self.get_code_extension():
+                self.code_extension = f'.{extension}'
                 self.code_extension = extensions_map.get_file_extesion(self.code_extenstion) or self.code_extenstion
 
             for index, choice in enumerate(self.code_choices):
                 choice_content = self.get_code_choice(index)
                 logger.info(f"Enumerated Choice content: {choice}")
-                self.save_file("codes/"+filename+'_'+str(index+1) + self.code_extension, choice_content)
+                self.save_file(
+                    f"codes/{filename}_{str(index + 1)}{self.code_extension}",
+                    choice_content,
+                )
         except Exception as exception:
             stack_trace = traceback.format_exc()
             logger.error(f"Error occurred while saving code choices: {exception}")
