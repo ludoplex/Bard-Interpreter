@@ -14,8 +14,7 @@ def sharegpt_post_conversation(conversation_data):
     response = requests.post(url, headers=headers, data=json.dumps(conversation_data))
     response_data = response.json()
     id = response_data["id"]
-    sharegpt_url = f"https://shareg.pt/{id}"
-    return sharegpt_url
+    return f"https://shareg.pt/{id}"
 
 # Method to get ShareGPT URL
 def sharegpt_get_url(gpt_data="", human_data=""):
@@ -25,5 +24,4 @@ def sharegpt_get_url(gpt_data="", human_data=""):
             {"from": "human", "value": human_data},
         ]
     }
-    sharegpt_url = sharegpt_post_conversation(conversation_data)
-    return sharegpt_url
+    return sharegpt_post_conversation(conversation_data)

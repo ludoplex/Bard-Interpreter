@@ -151,16 +151,15 @@ def auto_bard_execute(prompt, code_file='code.txt', code_choices='code_choice', 
         # Generate the code from the prompt
         logger.info("Generating code from prompt")
         code = st.session_state.bard_coder.generate_code(prompt, 'python')  # Generate code using BardCoder
-        
+
         # print the code in output.
         if code:
             st.code(code, language='python')
-            
+
         # Save the code to file
         if st.session_state.save_file and code and len(code) > 0:
             logger.info("Saving generated code to file")
-            saved_file = st.session_state.bard_coder.save_code(code_file)
-            if saved_file:
+            if saved_file := st.session_state.bard_coder.save_code(code_file):
                 logger.info(f"Code saved to file {saved_file}")
                 st.info(f"Code saved to file {saved_file}")
             else:
@@ -189,7 +188,7 @@ def auto_bard_execute(prompt, code_file='code.txt', code_choices='code_choice', 
             logger.info("Code is safe, executing code")
             if st.session_state.bard_coder is not None:
                 code_output = st.session_state.bard_coder.execute_code(code)
-            
+
             if code_output and code_output != None and code_output.__len__() > 0:
                 if 'error' in code_output.lower() or 'exception' in code_output.lower():
                     logger.info(f"Error in executing code with type {exec_type}")
@@ -255,8 +254,6 @@ def auto_bard_setup(prompt, code_file='code.txt', code_choices='code_choice', ex
 
     # Append the codes directory to filename
     code_file = path.join("codes", code_file)
-    test_cases_output = 0  # Test cases for output.
-
     # Start the bard coder process
     logger.info("Starting bard coder process")
     code_choices_output, saved_file, status = auto_bard_execute(prompt, code_file, code_choices, expected_output, exec_type)
@@ -267,6 +264,7 @@ def auto_bard_setup(prompt, code_file='code.txt', code_choices='code_choice', ex
         logger.info("File not saved")
         return code_choices_output, saved_file, status
 
+    test_cases_output = 0
     if status:
         logger.info(f"Expected output found in file {saved_file}\nOutput: {code_choices_output}")
         st.info(f"Expected output found in file {saved_file}\nOutput: {code_choices_output}")
@@ -278,11 +276,7 @@ def auto_bard_setup(prompt, code_file='code.txt', code_choices='code_choice', ex
         if code_output and code_output != None and code_output.__len__() > 0:
 
             # Check for errors like 'error' or 'Error' check case sensitivity and add more error checks.
-            if code_output is not None:
-                code_output = "".join(code_output)
-            else:
-                code_output = ""
-
+            code_output = "".join(code_output) if code_output is not None else ""
             if code_output:
                 logger.info("Checking for errors in code output")
                 while 'error' in code_output.lower() or 'exception' in code_output.lower():
@@ -293,8 +287,7 @@ def auto_bard_setup(prompt, code_file='code.txt', code_choices='code_choice', ex
 
                     # Re-prompt on error.
                     code = st.session_state.bard_coder.get_code()
-                    prompt = f"I got error while running the code {code_output}.\nPlease fix the code ``\n`{code}\n``` \nand try again.\nHere is error {code_output}\n\n" + \
-                        "Note:The output should only be fixed code and nothing else. No explanation or anything else."
+                    prompt = f"I got error while running the code {code_output}.\nPlease fix the code ``\n`{code}\n``` \nand try again.\nHere is error {code_output}\n\nNote:The output should only be fixed code and nothing else. No explanation or anything else."
 
                     # Start the bard coder process again.
                     logger.info("Starting bard coder process again")
@@ -321,8 +314,7 @@ def auto_bard_setup(prompt, code_file='code.txt', code_choices='code_choice', ex
 
                     # Re-prompt on expected output not found.
                     code = st.session_state.bard_coder.get_code()
-                    prompt = f"I got output {code_output}.\nPlease fix the code ``\n`{code}\n```  \nand try again.\nHere is expected output: {code_output}\n\n" + \
-                        "Note:The output should only be fixed code and nothing else. No explanation or anything else."
+                    prompt = f"I got output {code_output}.\nPlease fix the code ``\n`{code}\n```  \nand try again.\nHere is expected output: {code_output}\n\nNote:The output should only be fixed code and nothing else. No explanation or anything else."
 
                     # start the bard coder process again.
                     logger.info("Starting bard coder process again")
@@ -363,10 +355,7 @@ def find_image_files(file_path):
             lines = f.readlines()
             # Loop through the lines
             for line in lines:
-                # Search for image files in the line
-                match = image_regex.search(line)
-                # If there is a match
-                if match:
+                if match := image_regex.search(line):
                     # Get the image file name
                     image_file = match.group()
                     # Print the image file name
@@ -382,7 +371,7 @@ def is_prompt_safe(prompt):
     if prompt is None:
         logger.info("Prompt is Empty")
         return False
-    
+
     logger.info("Checking prompt for safety")
 
     # Extra care for prompt input.
@@ -398,7 +387,7 @@ def is_prompt_safe(prompt):
         if command in prompt_list:
             logger.info(f"Prompt is not safe because of illegal command found '{command}'")
             return False, command
-    logger.info(f"Input Prompt is safe")
+    logger.info("Input Prompt is safe")
     return True, None
 
 
@@ -415,7 +404,7 @@ def tokenize_source_code(source_code):
         if st.session_state.bard_coder:
           logger.error("Error parsing the tokens")
     if tokens:
-        tokens = list(([token.lower() for token in tokens]))
+        tokens = [token.lower() for token in tokens]
     if st.session_state.bard_coder:
       logger.info(f"Tokenise was called and Tokens length is {tokens.__len__()}")
     return tokens
@@ -437,10 +426,11 @@ def is_code_safe(code):
 
     # Check if any harmful command is in the list of words
     for command in harmful_code_commands:
-        for token in tokens_list:
-            if command == token:
-                output_dict.append((False, command, token))
-
+        output_dict.extend(
+            (False, command, token)
+            for token in tokens_list
+            if command == token
+        )
     if output_dict is None or output_dict.__len__() == 0:
         output_dict = [(True, None, None)]
     if st.session_state.bard_coder:

@@ -41,18 +41,10 @@ streamlit_code_langs = {
 def get_streamlit_code_lang(language):
     # make language name small letters
     language = language.lower()
-    # get file extension from ext_map
-    file_extension = streamlit_code_langs.get(language)
-    # return file extension
-    #print(f"get_file_extesion: Language: {language} File Extension: {file_extension}")
-    return file_extension
+    return streamlit_code_langs.get(language)
     
 # Method to get file extension from language name
 def get_file_extesion(language):
     # make language name small letters
     language = language.lower()
-    # get file extension from ext_map
-    file_extension = extension_map.get(language)
-    # return file extension
-    #print(f"get_file_extesion: Language: {language} File Extension: {file_extension}")
-    return file_extension
+    return extension_map.get(language)
